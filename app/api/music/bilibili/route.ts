@@ -49,6 +49,7 @@ export async function GET(request: NextRequest) {
       name: data.title || '未知视频',
       artist: data.owner?.name || '',
       cover: data.pic || '',
+      desc: (data.desc || '').slice(0, 500),
       url: audioUrl,
       proxyUrl: `/api/music/bilibili/play?bvid=${bvid}`,
     })
