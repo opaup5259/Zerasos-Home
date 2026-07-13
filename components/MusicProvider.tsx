@@ -144,6 +144,10 @@ export function MusicProvider({ children }: { children: ReactNode }) {
                 lyrics: data.lrc ? parseLrc(data.lrc) : [],
               };
             } else {
+              const desc = data.desc || '';
+              const lrcLines = desc
+                ? [{ time: -1, text: '—— 视频简介 ——' }, { time: 0, text: desc }]
+                : [{ time: 0, text: '暂无歌词' }];
               return {
                 id: data.id || data.bvid || Math.random().toString(),
                 title: titleOverrides[key] || data.name || '未知视频',
@@ -151,7 +155,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
                 cover: data.cover || 'https://bu.dusays.com/2026/03/24/69c24230a5ff8.jpg',
                 src: data.proxyUrl || data.url,
                 lrcUrl: null,
-                lyrics: [],
+                lyrics: lrcLines,
               };
             }
           })
