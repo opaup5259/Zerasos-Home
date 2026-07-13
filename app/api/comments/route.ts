@@ -1,158 +1,160 @@
-// 自定义评论系统 API - 使用 GitHub Issues 存储评论（无需 OAuth App）
-// 服务端使用 GH_TOKEN 直接操作 GitHub Issues，不暴露给前端
+import { query, execute, queryOne } from '../../../lib/db';
 
-const GH_TOKEN = process.env.GH_TOKEN;
+const GH_TOKEN = process.env.GH_TOKEN || '';
 const COMMENTS_REPO = 'Zerasos-Home-Comments';
 const COMMENTS_OWNER = 'opaup5259';
 const GH_API = 'https://api.github.com';
 
-// 将页面路径转为 Issue 标题（截断以免 GitHub 限制）
 function pathToIssueTitle(path: string): string {
   return `comments: ${path.replace(/\/$/,'') || '/'}`.substring(0, 200);
 }
 
-// 查找或创建对应页面路径的 Issue（避免使用 Search API，防止索引延迟）
+// ========== GitHub Issues 兼容（已有数据） ==========
+let _issueCache = new Map<string, number>();
+
 async function ensureIssue(path: string): Promise<number> {
+  const cached = _issueCache.get(path);
+  if (cached) return cached;
+
   const title = pathToIssueTitle(path);
-  
-  // 列出所有 Issue（最多100个），本地匹配标题
   let page = 1;
-  const perPage = 100;
-  while (page <= 3) {  // 最多翻3页
-    const listUrl = `${GH_API}/repos/${COMMENTS_OWNER}/${COMMENTS_REPO}/issues?state=all&per_page=${perPage}&page=${page}&sort=updated&direction=desc`;
-    const listRes = await fetch(listUrl, {
-      headers: { 'Authorization': `token ${GH_TOKEN}`, 'Accept': 'application/vnd.github.v3+json' }
+  while (page <= 3) {
+    const url = `${GH_API}/repos/${COMMENTS_OWNER}/${COMMENTS_REPO}/issues?state=all&per_page=100&page=${page}&sort=updated&direction=desc`;
+    const res = await fetch(url, {
+      headers: { Authorization: `token ${GH_TOKEN}`, Accept: 'application/vnd.github.v3+json' }
     });
-    if (!listRes.ok) break;
-    const issues = await listRes.json();
+    if (!res.ok) break;
+    const issues = await res.json();
     if (!Array.isArray(issues) || issues.length === 0) break;
     for (const issue of issues) {
       if (issue.title === title) {
+        _issueCache.set(path, issue.number);
         return issue.number;
       }
     }
     page++;
   }
-  
-  // 没找到，创建新 Issue
+
   const createRes = await fetch(`${GH_API}/repos/${COMMENTS_OWNER}/${COMMENTS_REPO}/issues`, {
     method: 'POST',
-    headers: { 'Authorization': `token ${GH_TOKEN}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title, body: `Comments for: ${path}` })
+    headers: { Authorization: `token ${GH_TOKEN}`, Accept: 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, body: `Comments for: ${path}`, labels: [] }),
   });
   const createData = await createRes.json();
+  _issueCache.set(path, createData.number);
   return createData.number;
 }
 
+// ========== GET: 获取评论 ==========
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
-    const path = url.searchParams.get('path') || '/';
-    
-    const issueNumber = await ensureIssue(path);
-    
-    // 获取该 Issue 的所有评论
-    const commentsRes = await fetch(`${GH_API}/repos/${COMMENTS_OWNER}/${COMMENTS_REPO}/issues/${issueNumber}/comments?per_page=100`, {
-      headers: { 'Authorization': `token ${GH_TOKEN}`, 'Accept': 'application/vnd.github.v3+json' }
-    });
-    
-    if (!commentsRes.ok) {
-      return Response.json({ comments: [] });
-    }
-    
-    const comments = await commentsRes.json();
-    
-    // 解析我们自定义的评论格式：第一行是用户名
-    const parsedComments = comments.map((c: any) => {
-      const body = c.body || '';
-      const firstNewline = body.indexOf('\n');
-      let name = '匿名';
-      let content = body;
-      if (firstNewline > 0) {
-        name = body.substring(0, firstNewline).replace(/^评论者[:：]\s*/, '').trim() || '匿名';
-        content = body.substring(firstNewline + 1).trim();
+    const pagePath = url.searchParams.get('path') || '/';
+
+    // 优先从 MySQL 读
+    let comments = await query(
+      'SELECT c.id, c.openid, c.nickname, c.content, c.created_at, u.avatar FROM comments c LEFT JOIN users u ON c.openid = u.openid WHERE c.page_path = ? ORDER BY c.created_at ASC',
+      [pagePath]
+    );
+
+    // MySQL 没数据时 fallback 到 GitHub Issues（兼容旧评论）
+    if (comments.length === 0 && GH_TOKEN) {
+      const issueNumber = await ensureIssue(pagePath);
+      if (issueNumber) {
+        const res = await fetch(`${GH_API}/repos/${COMMENTS_OWNER}/${COMMENTS_REPO}/issues/${issueNumber}/comments?per_page=100`, {
+          headers: { Authorization: `token ${GH_TOKEN}`, Accept: 'application/vnd.github.v3+json' }
+        });
+        if (res.ok) {
+          const ghComments = await res.json();
+          comments = ghComments.map((c: any) => {
+            const body = c.body || '';
+            const nl = body.indexOf('\n');
+            const name = nl > 0 ? body.slice(0, nl).replace(/^评论者[:：]\s*/, '').trim() || 'Anonymous' : 'Anonymous';
+            const content = nl > 0 ? body.slice(nl + 1).trim() : body;
+            const avatarUrl = `https://api.dicebear.com/9.x/thumbs/svg?seed=${encodeURIComponent(name)}&scale=80&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`;
+            return { id: c.id, openid: '', nickname: name, content, created_at: c.created_at, avatar: avatarUrl };
+          }).filter((c: any) => !c.content.startsWith('BOT_META') && !c.content.startsWith('🐱'));
+        }
       }
-      // 根据用户名生成一致的头像（DiceBear 免费 API）
-      const avatarUrl = `https://api.dicebear.com/9.x/thumbs/svg?seed=${encodeURIComponent(name)}&scale=80&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`;
-      return {
-        id: c.id,
-        name,
-        content,
-        date: c.created_at,
-        avatarUrl,
-      };
-    });
-    
-    return Response.json({ comments: parsedComments, issueNumber });
-    
+    }
+
+    return Response.json({ comments });
   } catch (e) {
-    console.error('获取评论失败:', e);
-    return Response.json({ comments: [], error: '获取评论失败' }, { status: 500 });
+    console.error('GET comments error:', e);
+    return Response.json({ comments: [] });
   }
 }
 
+// ========== POST: 发布评论 ==========
 export async function POST(req: Request) {
   try {
-    const { path, name, content } = await req.json();
-    
+    const { path, content, openid, nickname, avatar } = await req.json();
     if (!path || !content || !content.trim()) {
       return Response.json({ error: '内容和路径不能为空' }, { status: 400 });
     }
-    
-    const safeName = (name || '匿名').trim().substring(0, 50);
-    const issueNumber = await ensureIssue(path);
-    
-    // 评论格式：第一行是用户名，后面是内容
-    const body = `评论者：${safeName}\n\n${content.trim()}`;
-    
-    const createRes = await fetch(`${GH_API}/repos/${COMMENTS_OWNER}/${COMMENTS_REPO}/issues/${issueNumber}/comments`, {
-      method: 'POST',
-      headers: { 'Authorization': `token ${GH_TOKEN}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
-      body: JSON.stringify({ body })
-    });
-    
-    if (!createRes.ok) {
-      const err = await createRes.text();
-      return Response.json({ error: '评论发布失败' }, { status: 500 });
+
+    const safeName = (nickname || '匿名').trim().substring(0, 50);
+
+    // 1. 保存到 MySQL
+    const result = await execute(
+      'INSERT INTO comments (openid, nickname, content, page_path) VALUES (?, ?, ?, ?)',
+      [openid || '', safeName, content.trim(), path]
+    );
+
+    // 2. 如果有关联的 openid，更新用户最后活跃时间
+    if (openid) {
+      await execute(
+        'INSERT INTO users (openid, nickname, avatar) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE nickname = VALUES(nickname), avatar = VALUES(avatar), last_active = CURRENT_TIMESTAMP',
+        [openid, safeName, avatar || '']
+      );
     }
-    
-    const comment = await createRes.json();
 
-    // 🌟 调度 Bot 自动回复（异步，不影响用户响应）
-    const randomDelay = Math.floor(Math.random() * 291) + 10; // 10~300秒
-    const waitUntil = Math.floor(Date.now() / 1000) + randomDelay;
+    // 3. 同步到 GitHub Issues（已有评论兼容）
+    if (GH_TOKEN) {
+      try {
+        const issueNumber = await ensureIssue(path);
+        const ghBody = `评论者：${safeName}\n\n${content.trim()}`;
+        await fetch(`${GH_API}/repos/${COMMENTS_OWNER}/${COMMENTS_REPO}/issues/${issueNumber}/comments`, {
+          method: 'POST',
+          headers: { Authorization: `token ${GH_TOKEN}`, Accept: 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+          body: JSON.stringify({ body: ghBody }),
+        });
 
-    // 添加 bot-pending 标签
-    try {
-      await fetch(`${GH_API}/repos/${COMMENTS_OWNER}/${COMMENTS_REPO}/issues/${issueNumber}/labels`, {
-        method: 'POST',
-        headers: { 'Authorization': `token ${GH_TOKEN}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
-        body: JSON.stringify({ labels: ['bot-pending'] })
-      });
-    } catch(e) { /* 标签失败不影响评论发布 */ }
+        // 调度 Bot 自动回复
+        const randomDelay = Math.floor(Math.random() * 291) + 10;
+        const waitUntil = Math.floor(Date.now() / 1000) + randomDelay;
+        await fetch(`${GH_API}/repos/${COMMENTS_OWNER}/${COMMENTS_REPO}/issues/${issueNumber}/labels`, {
+          method: 'POST',
+          headers: { Authorization: `token ${GH_TOKEN}`, Accept: 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+          body: JSON.stringify({ labels: ['bot-pending'] }),
+        }).catch(() => {});
+        await fetch(`${GH_API}/repos/${COMMENTS_OWNER}/${COMMENTS_REPO}/issues/${issueNumber}/comments`, {
+          method: 'POST',
+          headers: { Authorization: `token ${GH_TOKEN}`, Accept: 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+          body: JSON.stringify({ body: `BOT_META\nreplyTo: ${Date.now()}\nwaitUntil: ${waitUntil}` }),
+        }).catch(() => {});
+      } catch (e) {
+        // GitHub 同步失败不影响主流程
+      }
+    }
 
-    // 写入元数据（标记哪条评论需要回复、何时回复）
-    try {
-      await fetch(`${GH_API}/repos/${COMMENTS_OWNER}/${COMMENTS_REPO}/issues/${issueNumber}/comments`, {
-        method: 'POST',
-        headers: { 'Authorization': `token ${GH_TOKEN}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
-        body: JSON.stringify({ body: `BOT_META\nreplyTo: ${comment.id}\nwaitUntil: ${waitUntil}` })
-      });
-    } catch(e) { /* 元数据失败不影响评论发布 */ }
-    
+    // 4. 返回新评论
+    const avatarUrl = avatar || `https://api.dicebear.com/9.x/thumbs/svg?seed=${encodeURIComponent(safeName)}&scale=80&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`;
+
     return Response.json({
       success: true,
       comment: {
-        id: comment.id,
-        name: safeName,
+        id: result.insertId,
+        openid: openid || '',
+        nickname: safeName,
         content: content.trim(),
-        date: comment.created_at,
-        avatarUrl: comment.user?.avatar_url || '',
+        created_at: new Date().toISOString(),
+        avatar: avatarUrl,
       }
     });
-    
+
   } catch (e) {
-    console.error('发布评论失败:', e);
-    return Response.json({ error: '发布评论失败' }, { status: 500 });
+    console.error('POST comments error:', e);
+    return Response.json({ error: '评论发布失败' }, { status: 500 });
   }
 }
