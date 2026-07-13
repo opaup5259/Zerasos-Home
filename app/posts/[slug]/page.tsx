@@ -100,6 +100,17 @@ async function getPostData(slug: string) {
     .use(rehypeStringify, { allowDangerousHtml: true })
     .process(content);
 
+  // 随机封面（基于 slug 确定）
+  const fallbackCovers = [
+    "https://opa-1316532755.cos.ap-guangzhou.myqcloud.com/zarasos-home/photo_01.jpg",
+    "https://opa-1316532755.cos.ap-guangzhou.myqcloud.com/zarasos-home/photo_02.jpg",
+    "https://opa-1316532755.cos.ap-guangzhou.myqcloud.com/zarasos-home/photo_03.jpg",
+    "https://opa-1316532755.cos.ap-guangzhou.myqcloud.com/zarasos-home/photo_04.jpg",
+    "https://opa-1316532755.cos.ap-guangzhou.myqcloud.com/zarasos-home/photo_05.jpg",
+  ];
+  let coverIdx = 0;
+  for (let ci = 0; ci < slug.length; ci++) coverIdx = (coverIdx + slug.charCodeAt(ci)) % fallbackCovers.length;
+
   return {
     slug,
     contentHtml: processedContent.toString(),
@@ -107,17 +118,13 @@ async function getPostData(slug: string) {
     title: data.title,
     date: data.date,
     tags: data.tags && Array.isArray(data.tags) ? data.tags : [],
-    // 随机封面（基于 slug 确定）
-    const fallbackCovers = [
+    cover: data.cover || fallbackCovers[coverIdx],
       "https://opa-1316532755.cos.ap-guangzhou.myqcloud.com/zarasos-home/photo_01.jpg",
       "https://opa-1316532755.cos.ap-guangzhou.myqcloud.com/zarasos-home/photo_02.jpg",
       "https://opa-1316532755.cos.ap-guangzhou.myqcloud.com/zarasos-home/photo_03.jpg",
       "https://opa-1316532755.cos.ap-guangzhou.myqcloud.com/zarasos-home/photo_04.jpg",
       "https://opa-1316532755.cos.ap-guangzhou.myqcloud.com/zarasos-home/photo_05.jpg",
     ];
-    let coverIdx = 0;
-    for (let ci = 0; ci < slug.length; ci++) coverIdx = (coverIdx + slug.charCodeAt(ci)) % fallbackCovers.length;
-    const finalCover = data.cover || fallbackCovers[coverIdx]
   };
 }
 
