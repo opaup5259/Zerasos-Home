@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
       return new NextResponse('No audio URL', { status: 404 })
     }
 
-    // 3) 下载完整音频到内存，再返回
+    // 3) Stream 音频到客户端
     const audioRes = await fetch(audioUrl, {
       headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.bilibili.com/' },
     })
@@ -47,13 +47,11 @@ export async function GET(request: NextRequest) {
       return new NextResponse('Audio source error', { status: 502 })
     }
 
-    const audioBuffer = await audioRes.arrayBuffer()
-
-    return new NextResponse(audioBuffer, {
+    // 使用 Web Streams API 转发
+    return new NextResponse(audioRes.body, {
       status: 200,
       headers: {
         'Content-Type': 'audio/mp4',
-        'Content-Length': String(audioBuffer.byteLength),
         'Accept-Ranges': 'bytes',
         'Cache-Control': 'public, max-age=3600',
         'Access-Control-Allow-Origin': '*',
