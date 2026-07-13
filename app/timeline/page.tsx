@@ -13,11 +13,11 @@ export const metadata = {
 
 // 说说杂谈用封面图池
 const FALLBACK_COVERS = [
-  "https://bu.dusays.com/2026/03/31/69cb69bb530d8.jpg",
-  "https://bu.dusays.com/2026/03/24/69c24230de927.jpg",
-  "https://bu.dusays.com/2026/03/24/69c24230a4efe.jpg",
-  "https://bu.dusays.com/2026/03/24/69c24230d661d.jpg",
-  "https://bu.dusays.com/2026/03/24/69c24230a5ff8.jpg",
+  "https://opa-1316532755.cos.ap-guangzhou.myqcloud.com/zarasos-home/photo_01.jpg",
+  "https://opa-1316532755.cos.ap-guangzhou.myqcloud.com/zarasos-home/photo_02.jpg",
+  "https://opa-1316532755.cos.ap-guangzhou.myqcloud.com/zarasos-home/photo_03.jpg",
+  "https://opa-1316532755.cos.ap-guangzhou.myqcloud.com/zarasos-home/photo_04.jpg",
+  "https://opa-1316532755.cos.ap-guangzhou.myqcloud.com/zarasos-home/photo_05.jpg",
 ];
 
 function getRandomCover(): string {
