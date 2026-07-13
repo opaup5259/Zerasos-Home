@@ -1,24 +1,12 @@
-// 🛡️ 本文件由控制台自动生成，请勿手动修改
-
-export type Project = {
-  id: string;
-  name: string;
-  description: string;
-  icon: string;
-  githubUrl: string;
-  tags: string[];
-};
+import type { Project } from "../types/project";
 
 export const projectsData: Project[] = [
   {
-    "id": "proj_1775049332705",
-    "name": "Computational Chemistry Tool",
-    "githubUrl": "https://github.com/heiehiehi/Computational_Chemistry_Tool",
-    "description": "该工具本作者使用在Win下的WSL2平台，系统为Ubuntu22，个人使用请依据自己数据进行修改（这些工具只是整合了一些流程）",
-    "icon": "🚀",
-    "tags": [
-      "Gromacs",
-      "RMSF"
-    ]
-  },
+    "id": "proj_1720000000001",
+    "name": "RabiSystem",
+    "githubUrl": "https://github.com/opaup5259/RabiSystem",
+    "description": "以泽拉索斯之名设计的娱乐向功能整合QQ机器人。搭载长程记忆模块，支持角色扮演对话、抽签占卜、短篇图像生成、知识库交互、Minecraft服务器状态查询等。基于AstrBot + LLM。",
+    "icon": "🐰",
+    "tags": ["QQ Bot", "AI", "AstrBot"]
+  }
 ];
