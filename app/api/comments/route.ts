@@ -64,12 +64,14 @@ export async function GET(req: Request) {
         name = body.substring(0, firstNewline).replace(/^评论者[:：]\s*/, '').trim() || '匿名';
         content = body.substring(firstNewline + 1).trim();
       }
+      // 根据用户名生成一致的头像（DiceBear 免费 API）
+      const avatarUrl = `https://api.dicebear.com/9.x/thumbs/svg?seed=${encodeURIComponent(name)}&scale=80&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`;
       return {
         id: c.id,
         name,
         content,
         date: c.created_at,
-        avatarUrl: c.user?.avatar_url || '',
+        avatarUrl,
       };
     });
     
