@@ -26,7 +26,16 @@ export const siteConfig = {
   photoWallImage: "https://opa-1316532755.cos.ap-guangzhou.myqcloud.com/zarasos-home/photo-wall.jpg",
 
   cloudMusicIds: [ "456175210", "2015716751","1809646618", "3361076230", "1859390262"],
-  bilibiliIds: [ "BV1EF3uzeETo","BV18Djs6AECz",],
+
+  songList: [
+    {"type": "bili", "id": "BV1EF3uzeETo", "title": ""},
+    {"type": "wyy", "id": "2015716751", "title": ""},
+    {"type": "wyy", "id": "1809646618", "title": ""},
+    {"type": "wyy", "id": "3361076230", "title": ""},
+    {"type": "wyy", "id": "1859390262", "title": ""},
+    {"type": "wyy", "id": "456175210", "title": ""},
+    {"type": "bili", "id": "BV18Djs6AECz", "title": ""},
+  ],  bilibiliIds: [ "BV1EF3uzeETo","BV18Djs6AECz",],
 
   social: {
     github: "opaup5259",
