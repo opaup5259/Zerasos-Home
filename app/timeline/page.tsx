@@ -71,13 +71,14 @@ export default function Timeline() {
   let tagCounts: Record<string, number> = {};
 
   const posts = readMarkdownDir(postsDir);
-  posts.forEach(item => allItems.push({ ...item, source: 'post' }));
+  posts.forEach(item => allItems.push({ ...item, source: 'post', link: `/posts/${item.slug}` }));
 
-  const chatters = readMarkdownDir(chattersDir);
-  chatters.forEach(item => allItems.push({ ...item, source: 'chatter', tags: item.tags.length ? item.tags : ['说说'] }));
+  // 说说不再显示在归档中
+  // const chatters = readMarkdownDir(chattersDir);
+  // chatters.forEach(item => allItems.push({ ...item, source: 'chatter', tags: item.tags.length ? item.tags : ['说说'], link: `/chatter/${item.slug}` }));
 
   const moments = readMarkdownDir(momentsDir);
-  moments.forEach(item => allItems.push({ ...item, source: 'moment', tags: item.tags.length ? item.tags : ['杂谈'] }));
+  moments.forEach(item => allItems.push({ ...item, source: 'moment', tags: item.tags.length ? item.tags : ['杂谈'], link: '/moments/' }));
 
   allItems.sort((a, b) => {
     const aTime = a.date ? new Date(a.date).getTime() : 0;
