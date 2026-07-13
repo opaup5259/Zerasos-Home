@@ -11,6 +11,24 @@ export const metadata = {
   title: "归档与探索 | " + siteConfig.title,
 };
 
+// 说说杂谈用封面图池
+const FALLBACK_COVERS = [
+  "https://bu.dusays.com/2026/03/31/69cb69bb530d8.jpg",
+  "https://bu.dusays.com/2026/03/24/69c24230de927.jpg",
+  "https://bu.dusays.com/2026/03/24/69c24230a4efe.jpg",
+  "https://bu.dusays.com/2026/03/24/69c24230d661d.jpg",
+  "https://bu.dusays.com/2026/03/24/69c24230a5ff8.jpg",
+];
+
+function getRandomCover(): string {
+  return FALLBACK_COVERS[Math.floor(Math.random() * FALLBACK_COVERS.length)];
+}
+
+function extractFirstImage(content: string): string | null {
+  const match = content.match(/!\[.*?\]\((.*?)\)/);
+  return match ? match[1] : null;
+}
+
 function readMarkdownDir(dirPath: string): any[] {
   const items: any[] = [];
   try {
@@ -20,14 +38,22 @@ function readMarkdownDir(dirPath: string): any[] {
       const slug = fileName.replace(/\.md$/, '');
       const fullPath = path.join(dirPath, fileName);
       const fileContents = fs.readFileSync(fullPath, 'utf8');
-      const { data } = matter(fileContents);
+      const { data, content } = matter(fileContents);
+
+      // 取封面：优先 frontmatter 的 cover，其次正文第一张图，最后随机
+      let cover = data.cover || '';
+      if (!cover) {
+        const firstImg = extractFirstImage(content);
+        cover = firstImg || getRandomCover();
+      }
+
       items.push({
         slug,
         title: data.title || '无标题',
         date: data.date || '1970-01-01',
         description: data.description || '',
         tags: data.tags && Array.isArray(data.tags) ? data.tags : [],
-        cover: data.cover || siteConfig.defaultPostCover || '',
+        cover,
       });
     });
   } catch(e) {
