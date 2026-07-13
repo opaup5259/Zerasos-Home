@@ -25,7 +25,7 @@ export const siteConfig = {
   defaultPostCover: "https://opa-1316532755.cos.ap-guangzhou.myqcloud.com/zarasos-home/default-cover.jpg",
   photoWallImage: "https://opa-1316532755.cos.ap-guangzhou.myqcloud.com/zarasos-home/photo-wall.jpg",
 
-  cloudMusicIds: [ "1975923438", "456175210", "2015716751","1809646618", "3361076230", "1859390262"],
+  cloudMusicIds: [ "456175210", "2015716751","1809646618", "3361076230", "1859390262"],
   bilibiliIds: [],
 
   social: {
