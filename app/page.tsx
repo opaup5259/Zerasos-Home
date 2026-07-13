@@ -51,7 +51,8 @@ export default function Home() {
           description: data.description || '',
           content: content || '',
           date: rawDate,
-          formattedDate: formatUpdateTime(rawDate)
+          formattedDate: formatUpdateTime(rawDate),
+          cover: data.cover || siteConfig.defaultPostCover
         };
       }).sort((a, b) => {
         const dateA = new Date(a.date).getTime();
