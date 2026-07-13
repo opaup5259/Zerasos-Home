@@ -108,16 +108,16 @@ async function getPostData(slug: string) {
     date: data.date,
     tags: data.tags && Array.isArray(data.tags) ? data.tags : [],
     // 随机封面（基于 slug 确定）
-    const covers = [
+    const fallbackCovers = [
       "https://opa-1316532755.cos.ap-guangzhou.myqcloud.com/zarasos-home/photo_01.jpg",
       "https://opa-1316532755.cos.ap-guangzhou.myqcloud.com/zarasos-home/photo_02.jpg",
       "https://opa-1316532755.cos.ap-guangzhou.myqcloud.com/zarasos-home/photo_03.jpg",
       "https://opa-1316532755.cos.ap-guangzhou.myqcloud.com/zarasos-home/photo_04.jpg",
       "https://opa-1316532755.cos.ap-guangzhou.myqcloud.com/zarasos-home/photo_05.jpg",
     ];
-    let idx = 0;
-    for (let i = 0; i < slug.length; i++) idx = (idx + slug.charCodeAt(i)) % covers.length;
-    cover: data.cover || covers[idx]
+    let coverIdx = 0;
+    for (let ci = 0; ci < slug.length; ci++) coverIdx = (coverIdx + slug.charCodeAt(ci)) % fallbackCovers.length;
+    const finalCover = data.cover || fallbackCovers[coverIdx]
   };
 }
 
