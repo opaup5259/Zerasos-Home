@@ -82,50 +82,83 @@ export function MusicProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let isMounted = true;
+    // 歌单 & B站元信息缓存
+    let biliMetaCache: Record<string, any> = {};
+
+    const getSongList = (): { type: string; id: string; title: string }[] => {
+      // 优先 songList 统一格式，兼容旧 cloudMusicIds + bilibiliIds
+      if ((siteConfig as any).songList?.length > 0) return (siteConfig as any).songList;
+      const list: any[] = [];
+      (siteConfig.cloudMusicIds || []).forEach((id: string) => list.push({ type: "wyy", id, title: "" }));
+      (siteConfig.bilibiliIds || []).forEach((id: string) => list.push({ type: "bili", id, title: "" }));
+      return list;
+    };
+
     const fetchMusicData = async () => {
       try {
-        let allSongs: any[] = [];
+        const songList = getSongList();
+        const wyyIds = songList.filter((s: any) => s.type === "wyy").map((s: any) => s.id);
+        const biliIds = songList.filter((s: any) => s.type === "bili").map((s: any) => s.id);
 
-        // 1) 网易云歌单
-        if (siteConfig.cloudMusicIds?.length > 0) {
-          const res = await fetch(`/api/music?ids=${siteConfig.cloudMusicIds.join(',')}`);
-          const rawResults = await res.json();
-          allSongs = rawResults.filter((s: any) => s && s.url && !s.error)
-            .map((s: any) => ({
-              id: s.id || Math.random().toString(),
-              title: s.name || '未知歌曲',
-              artist: s.artist || s.author || '未知歌手',
-              cover: s.cover || s.pic || 'https://bu.dusays.com/2026/03/24/69c24230a5ff8.jpg',
-              src: s.url,
-              lrcUrl: null,
-              lyrics: s.lrc ? parseLrc(s.lrc) : []
-            }));
-        }
-
-        // 2) B站歌单
-        const biliIds: string[] = siteConfig.bilibiliIds || [];
-        if (biliIds.length > 0) {
-          const biliResults = await Promise.all(
+        // 获取歌曲数据
+        const [wyyResults, biliResults] = await Promise.all([
+          wyyIds.length
+            ? fetch(`/api/music?ids=${wyyIds.join(',')}`).then(r => r.json())
+            : Promise.resolve([]),
+          Promise.all(
             biliIds.map((bvid: string) =>
-              fetch(`/api/music/bilibili?bvid=${bvid}`).then(r => r.json())
+              fetch(`/api/music/bilibili?bvid=${bvid}`).then(r => r.json()).catch(() => null)
             )
-          );
-          biliResults.filter((s: any) => s && (s.url || s.proxyUrl) && !s.error)
-            .forEach((s: any) => {
-              allSongs.push({
-                id: s.id || s.bvid || Math.random().toString(),
-                title: s.name || '未知视频',
-                artist: s.artist || '',
-                cover: s.cover || 'https://bu.dusays.com/2026/03/24/69c24230a5ff8.jpg',
-                src: s.proxyUrl || s.url,
+          ),
+        ]);
+
+        // 构建 ID->数据 映射
+        const metaMap: Record<string, any> = {};
+        const titleOverrides = Object.fromEntries(
+          songList.filter((s: any) => s.title).map((s: any) => [`${s.type}:${s.id}`, s.title])
+        );
+
+        (wyyResults || []).filter((s: any) => s && s.url && !s.error).forEach((s: any) => {
+          metaMap[`wyy:${s.id}`] = s;
+        });
+        (biliResults || []).filter((s: any) => s && (s.url || s.proxyUrl) && !s.error).forEach((s: any) => {
+          metaMap[`bili:${s.bvid || s.id}`] = s;
+          biliMetaCache[s.bvid || s.id] = s;
+        });
+
+        // 按 songList 顺序组装播放列表
+        const mergedPlaylist = songList
+          .map((entry: any) => {
+            const key = `${entry.type}:${entry.id}`;
+            const data = metaMap[key];
+            if (!data) return null;
+
+            if (entry.type === "wyy") {
+              return {
+                id: data.id || Math.random().toString(),
+                title: titleOverrides[key] || data.name || '未知歌曲',
+                artist: data.artist || data.author || '未知歌手',
+                cover: data.cover || data.pic || 'https://bu.dusays.com/2026/03/24/69c24230a5ff8.jpg',
+                src: data.url,
                 lrcUrl: null,
-                lyrics: []
-              });
-            });
-        }
+                lyrics: data.lrc ? parseLrc(data.lrc) : [],
+              };
+            } else {
+              return {
+                id: data.id || data.bvid || Math.random().toString(),
+                title: titleOverrides[key] || data.name || '未知视频',
+                artist: data.artist || '',
+                cover: data.cover || 'https://bu.dusays.com/2026/03/24/69c24230a5ff8.jpg',
+                src: data.proxyUrl || data.url,
+                lrcUrl: null,
+                lyrics: [],
+              };
+            }
+          })
+          .filter(Boolean);
 
         if (isMounted) {
-          if (allSongs.length > 0) setPlaylist(allSongs);
+          if (mergedPlaylist.length > 0) setPlaylist(mergedPlaylist);
           else setCurrentLyric("云端链路受阻");
           setIsLoading(false);
         }
@@ -134,7 +167,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    if (siteConfig.cloudMusicIds?.length > 0 || siteConfig.bilibiliIds?.length > 0) fetchMusicData();
+    if (getSongList().length > 0) fetchMusicData();
     else setIsLoading(false);
 
     return () => { isMounted = false; };
