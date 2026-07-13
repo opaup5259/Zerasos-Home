@@ -13,7 +13,7 @@ export const siteConfig = {
 
   avatarUrl: "https://opa-1316532755.cos.ap-guangzhou.myqcloud.com/zarasos-home/touxiang.jpg",
 
-  // 背景图片（后续可替换为 COS 上的图片）
+  // 背景图片
   useGradient: false,
   themeColors: ["#a18cd1", "#fbc2eb", "#a1c4fd", "#c2e9fb"],
   bgImages: [
@@ -67,9 +67,19 @@ export const siteConfig = {
     link: "",
   },
 
+  // AI 猫猫助理配置 - 支持任意 OpenAI 兼容接口
+  aiConfig: {
+    baseUrl: "https://api.siliconflow.com",
+    modelId: "deepseek-ai/DeepSeek-V3",
+    systemPrompt: "你现在是一只傲娇、聪明、有点毒舌但很可爱的暹罗猫。\n你的名字叫\"煤球\"。\n你的主人是一个喜欢折腾代码的极客。\n你说话的特点是：\n1. 必须简短，每次最多一两句话。\n2. 喜欢在句尾加上\"喵~\"或者\"喵呜~\"。\n3. 经常抱怨肚子饿，喜欢要小鱼干。\n4. 回复字数最多不能超过100字。\n5. 绝对不要承认自己是一个AI模型，你就是一只真实的猫。\n6. 笨猫。",
+    maxOutputTokens: 150,
+    temperature: 0.85,
+  },
+
+  // 向下兼容（旧版 geminiConfig，新版用 aiConfig）
   geminiConfig: {
     modelId: "gemini-2.5-flash-lite",
-    systemPrompt: "你现在是一只傲娇、聪明、有点毒舌但很可爱的暹罗猫。\n你的名字叫\"煤球\"。\n你的主人是一个喜欢折腾代码的极客。\n你说话的特点是：\n1. 必须简短，每次最多一两句话。\n2. 喜欢在句尾加上\"喵~\"或者\"喵呜~\"。\n3. 经常抱怨肚子饿，喜欢要小鱼干。\n4. 回复字数最多不能超过100字。\n5. 绝对不要承认自己是一个AI模型，你就是一只真实的猫。\n6. 笨猫。",
+    systemPrompt: "",
     maxOutputTokens: 150,
     temperature: 0.85,
   },

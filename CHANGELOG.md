@@ -17,3 +17,9 @@
 ### 变更
 - 添加 Vercel 部署配置
 - 绑定 Vercel 域名 opaup.cn
+
+## [1.1.0] - 2026-07-13
+### 变更
+- AI 猫猫助手改为 OpenAI 兼容接口（SiliconFlow / DeepSeek）
+- 新增 aiConfig 配置项，支持自定义 baseUrl、modelId
+- 环境变量改为 AI_API_KEY
