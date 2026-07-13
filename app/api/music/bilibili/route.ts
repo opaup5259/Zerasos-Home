@@ -43,19 +43,14 @@ export async function GET(request: NextRequest) {
     const dashAudio = playData.data?.dash?.audio?.[0]
     const audioUrl = dashAudio?.baseUrl || dashAudio?.backupUrl?.[0] || ''
 
-    // 返回代理播放 URL 而不是直链
-    const baseUrl = process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : `http://localhost:${process.env.PORT || 3000}`
-
     return NextResponse.json({
       id: bvid,
       bvid,
       name: data.title || '未知视频',
       artist: data.owner?.name || '',
       cover: data.pic || '',
-      url: audioUrl,                                    // 原始直链（浏览器可能播不了）
-      proxyUrl: `${baseUrl}/api/music/bilibili/play?bvid=${bvid}`,  // 代理链（带 Referer）
+      url: audioUrl,
+      proxyUrl: `/api/music/bilibili/play?bvid=${bvid}`,
     })
   } catch (error: any) {
     console.error(`[api/music/bilibili] 获取 ${bvid} 失败:`, error)
