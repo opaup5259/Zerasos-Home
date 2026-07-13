@@ -84,23 +84,48 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     let isMounted = true;
     const fetchMusicData = async () => {
       try {
-        const res = await fetch(`/api/music?ids=${siteConfig.cloudMusicIds.join(',')}`);
-        const rawResults = await res.json();
+        let allSongs: any[] = [];
 
-        const mergedPlaylist = rawResults
-          .filter((song: any) => song && song.url && !song.error)
-          .map((song: any) => ({
-            id: song.id || Math.random().toString(),
-            title: song.name || '未知歌曲',
-            artist: song.artist || song.author || '未知歌手',
-            cover: song.cover || song.pic || 'https://bu.dusays.com/2026/03/24/69c24230a5ff8.jpg',
-            src: song.url,
-            lrcUrl: null,
-            lyrics: song.lrc ? parseLrc(song.lrc) : []
-          }));
+        // 1) 网易云歌单
+        if (siteConfig.cloudMusicIds?.length > 0) {
+          const res = await fetch(`/api/music?ids=${siteConfig.cloudMusicIds.join(',')}`);
+          const rawResults = await res.json();
+          allSongs = rawResults.filter((s: any) => s && s.url && !s.error)
+            .map((s: any) => ({
+              id: s.id || Math.random().toString(),
+              title: s.name || '未知歌曲',
+              artist: s.artist || s.author || '未知歌手',
+              cover: s.cover || s.pic || 'https://bu.dusays.com/2026/03/24/69c24230a5ff8.jpg',
+              src: s.url,
+              lrcUrl: null,
+              lyrics: s.lrc ? parseLrc(s.lrc) : []
+            }));
+        }
+
+        // 2) B站歌单
+        const biliIds: string[] = siteConfig.bilibiliIds || [];
+        if (biliIds.length > 0) {
+          const biliResults = await Promise.all(
+            biliIds.map((bvid: string) =>
+              fetch(`/api/music/bilibili?bvid=${bvid}`).then(r => r.json())
+            )
+          );
+          biliResults.filter((s: any) => s && s.url && !s.error)
+            .forEach((s: any) => {
+              allSongs.push({
+                id: s.id || s.bvid || Math.random().toString(),
+                title: s.name || '未知视频',
+                artist: s.artist || '',
+                cover: s.cover || 'https://bu.dusays.com/2026/03/24/69c24230a5ff8.jpg',
+                src: s.url,
+                lrcUrl: null,
+                lyrics: []
+              });
+            });
+        }
 
         if (isMounted) {
-          if (mergedPlaylist.length > 0) setPlaylist(mergedPlaylist);
+          if (allSongs.length > 0) setPlaylist(allSongs);
           else setCurrentLyric("云端链路受阻");
           setIsLoading(false);
         }
@@ -109,7 +134,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    if (siteConfig.cloudMusicIds?.length > 0) fetchMusicData();
+    if (siteConfig.cloudMusicIds?.length > 0 || siteConfig.bilibiliIds?.length > 0) fetchMusicData();
     else setIsLoading(false);
 
     return () => { isMounted = false; };
