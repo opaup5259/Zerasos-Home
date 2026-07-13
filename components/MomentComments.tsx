@@ -1,162 +1,144 @@
 "use client";
 
-import { useEffect, useRef } from 'react';
-import 'gitalk/dist/gitalk.css';
-import Gitalk from 'gitalk';
-import { siteConfig } from '../siteConfig';
+import { useEffect, useState } from 'react';
+import { Send, User, Clock, Loader2 } from 'lucide-react';
+
+interface Comment {
+  id: number;
+  name: string;
+  content: string;
+  date: string;
+  avatarUrl: string;
+}
 
 interface MomentCommentsProps {
-  id: string; // 必须传入说说的专属 ID
+  id: string; // 页面路径
 }
 
 export default function MomentComments({ id }: MomentCommentsProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [name, setName] = useState('');
+  const [content, setContent] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [posting, setPosting] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!containerRef.current) return;
-
-    // 清空重载，防止 React 严格模式下重复渲染
-    containerRef.current.innerHTML = '';
-
-    const gitalk = new Gitalk({
-      clientID: siteConfig.gitalkConfig.clientID,
-      clientSecret: siteConfig.gitalkConfig.clientSecret,
-      repo: siteConfig.gitalkConfig.repo,
-      owner: siteConfig.gitalkConfig.owner,
-      admin: siteConfig.gitalkConfig.admin,
-      // 截取前49个字符作为 GitHub Issue 的 Label（Gitalk 的要求）
-      id: id.substring(0, 49),
-      distractionFreeMode: false,
-    });
-
-    gitalk.render(containerRef.current);
+    fetchComments();
   }, [id]);
 
+  async function fetchComments() {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/comments?path=${encodeURIComponent(id)}`);
+      const data = await res.json();
+      setComments(data.comments || []);
+    } catch (e) {
+      console.error('Failed to load comments:', e);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!content.trim()) return;
+    setPosting(true);
+    setError('');
+    try {
+      const res = await fetch('/api/comments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: id, name: name.trim() || '匿名', content: content.trim() })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setComments(prev => [...prev, data.comment]);
+        setContent('');
+      } else {
+        setError(data.error || '发布失败');
+      }
+    } catch (e) {
+      setError('网络错误');
+    } finally {
+      setPosting(false);
+    }
+  }
+
+  function timeAgo(dateStr: string) {
+    const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+    if (diff < 60) return '刚刚';
+    if (diff < 3600) return `${Math.floor(diff / 60)} 分钟前`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} 小时前`;
+    return `${Math.floor(diff / 86400)} 天前`;
+  }
+
   return (
-    <div className="w-full relative">
-      <div ref={containerRef} className="moment-gitalk" />
+    <div className="w-full">
+      {/* 评论列表 */}
+      {loading ? (
+        <div className="flex items-center justify-center py-4 text-slate-400 text-xs">
+          <Loader2 size={14} className="animate-spin mr-1" />
+          加载中
+        </div>
+      ) : (
+        <div className="space-y-2 mb-3">
+          {comments.map(comment => (
+            <div key={comment.id} className="flex items-start gap-2 py-2 border-t border-slate-200/30 dark:border-slate-700/30 first:border-0">
+              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-[9px] font-bold shrink-0 mt-0.5">
+                {comment.avatarUrl ? (
+                  <img src={comment.avatarUrl} alt="" className="w-full h-full rounded-full object-cover" />
+                ) : (
+                  <User size={10} />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-bold text-[#576b95] dark:text-[#7f99cc]">{comment.name}</span>
+                  <span className="text-[9px] text-slate-400"><Clock size={8} className="inline" /> {timeAgo(comment.date)}</span>
+                </div>
+                <p className="text-[12px] text-slate-700 dark:text-slate-300 mt-0.5 leading-relaxed break-words">{comment.content}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
-      {/* 🌟 朋友圈级专属魔改 CSS：极简、紧凑、无边框 */}
-      <style jsx global>{`
-        /* 隐藏掉一些在说说里显得太多余的 Gitalk 原生元素 */
-        .moment-gitalk .gt-header-controls-tip,
-        .moment-gitalk .gt-svg-svg {
-          display: none !important;
-        }
-
-        /* 整体容器紧凑化 */
-        .moment-gitalk .gt-container {
-          padding: 0 !important;
-        }
-
-        /* 输入框区域：极简模式 */
-        .moment-gitalk .gt-header {
-          margin-bottom: 10px !important;
-        }
-        .moment-gitalk .gt-header-avatar {
-          width: 28px !important;
-          height: 28px !important;
-          margin-top: 4px !important;
-        }
-        .moment-gitalk .gt-header-avatar img {
-          border-radius: 6px !important;
-        }
-        .moment-gitalk .gt-header-comment {
-          margin-left: 40px !important;
-        }
-        .moment-gitalk .gt-header-textarea {
-          padding: 8px 12px !important;
-          min-height: 40px !important; /* 默认很矮 */
-          background: rgba(0, 0, 0, 0.03) !important;
-          border: 1px solid transparent !important;
-          border-radius: 8px !important;
-          font-size: 13px !important;
-          transition: all 0.3s ease !important;
-          color: inherit !important;
-        }
-        .moment-gitalk .gt-header-textarea:focus {
-          min-height: 80px !important; /* 点击后展开 */
-          background: rgba(255, 255, 255, 0.8) !important;
-          border-color: #6366f1 !important; /* 激活时变色 */
-        }
-        .dark .moment-gitalk .gt-header-textarea {
-          background: rgba(255, 255, 255, 0.05) !important;
-        }
-        .dark .moment-gitalk .gt-header-textarea:focus {
-          background: rgba(0, 0, 0, 0.5) !important;
-        }
-
-        /* 发布按钮微调 */
-        .moment-gitalk .gt-btn {
-          padding: 0.3em 1rem !important;
-          font-size: 12px !important;
-          border-radius: 6px !important;
-          background: #6366f1 !important;
-          border: none !important;
-        }
-
-        /* 评论列表：去边框，纯文本流 */
-        .moment-gitalk .gt-comments {
-          padding-top: 0 !important;
-        }
-        .moment-gitalk .gt-comment {
-          padding: 8px 0 !important;
-          margin: 0 !important;
-          border-top: 1px solid rgba(0, 0, 0, 0.05) !important;
-        }
-        .dark .moment-gitalk .gt-comment {
-          border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
-        }
-        .moment-gitalk .gt-comment:first-child {
-          border-top: none !important;
-        }
-        
-        /* 评论头像缩小 */
-        .moment-gitalk .gt-comment-avatar {
-          width: 24px !important;
-          height: 24px !important;
-        }
-        .moment-gitalk .gt-comment-avatar img {
-          border-radius: 4px !important;
-        }
-
-        /* 评论内容布局 */
-        .moment-gitalk .gt-comment-content {
-          margin-left: 34px !important;
-          padding: 0 !important;
-          background: transparent !important;
-          border: none !important;
-          box-shadow: none !important;
-        }
-        
-        /* 评论者名字 */
-        .moment-gitalk .gt-comment-username {
-          font-size: 13px !important;
-          font-weight: bold !important;
-          color: #576b95 !important; /* 朋友圈蓝色 */
-        }
-        .dark .moment-gitalk .gt-comment-username {
-          color: #7f99cc !important;
-        }
-
-        /* 评论正文 */
-        .moment-gitalk .gt-comment-body {
-          font-size: 13px !important;
-          color: inherit !important;
-          padding: 2px 0 0 0 !important;
-          margin-top: 0 !important;
-        }
-        .moment-gitalk .gt-comment-body p {
-          margin: 0 !important;
-        }
-
-        /* 隐藏回复按钮等杂项，保持极简 */
-        .moment-gitalk .gt-comment-like,
-        .moment-gitalk .gt-comment-edit,
-        .moment-gitalk .gt-comment-reply {
-          display: none !important;
-        }
-      `}</style>
+      {/* 评论输入 */}
+      <form onSubmit={handleSubmit} className="flex items-start gap-2 mt-2">
+        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-[9px] font-bold shrink-0 mt-1">
+          <User size={10} />
+        </div>
+        <div className="flex-1 flex flex-col gap-1.5">
+          <input
+            type="text"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            placeholder="昵称"
+            maxLength={20}
+            className="w-full bg-transparent border-b border-slate-200/50 dark:border-slate-700/50 text-[11px] text-slate-600 dark:text-slate-300 placeholder-slate-400 focus:outline-none focus:border-indigo-400 pb-0.5 transition-colors"
+          />
+          <div className="flex gap-1.5">
+            <input
+              type="text"
+              value={content}
+              onChange={e => setContent(e.target.value)}
+              placeholder="写评论..."
+              required
+              maxLength={500}
+              className="flex-1 bg-slate-100/50 dark:bg-slate-700/30 rounded-lg px-3 py-1.5 text-[11px] text-slate-700 dark:text-slate-300 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-400/50 transition-all"
+            />
+            <button
+              type="submit"
+              disabled={posting || !content.trim()}
+              className="px-2.5 py-1.5 bg-indigo-500 hover:bg-indigo-600 disabled:bg-slate-300 dark:disabled:bg-slate-600 rounded-lg text-white transition-all active:scale-95"
+            >
+              {posting ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+            </button>
+          </div>
+          {error && <p className="text-[9px] text-red-400">{error}</p>}
+        </div>
+      </form>
     </div>
   );
 }
