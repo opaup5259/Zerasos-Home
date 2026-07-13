@@ -119,12 +119,6 @@ async function getPostData(slug: string) {
     date: data.date,
     tags: data.tags && Array.isArray(data.tags) ? data.tags : [],
     cover: data.cover || fallbackCovers[coverIdx],
-      "https://opa-1316532755.cos.ap-guangzhou.myqcloud.com/zarasos-home/photo_01.jpg",
-      "https://opa-1316532755.cos.ap-guangzhou.myqcloud.com/zarasos-home/photo_02.jpg",
-      "https://opa-1316532755.cos.ap-guangzhou.myqcloud.com/zarasos-home/photo_03.jpg",
-      "https://opa-1316532755.cos.ap-guangzhou.myqcloud.com/zarasos-home/photo_04.jpg",
-      "https://opa-1316532755.cos.ap-guangzhou.myqcloud.com/zarasos-home/photo_05.jpg",
-    ];
   };
 }
 
