@@ -117,6 +117,28 @@ export async function POST(req: Request) {
     }
     
     const comment = await createRes.json();
+
+    // 🌟 调度 Bot 自动回复（异步，不影响用户响应）
+    const randomDelay = Math.floor(Math.random() * 291) + 10; // 10~300秒
+    const waitUntil = Math.floor(Date.now() / 1000) + randomDelay;
+
+    // 添加 bot-pending 标签
+    try {
+      await fetch(`${GH_API}/repos/${COMMENTS_OWNER}/${COMMENTS_REPO}/issues/${issueNumber}/labels`, {
+        method: 'POST',
+        headers: { 'Authorization': `token ${GH_TOKEN}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ labels: ['bot-pending'] })
+      });
+    } catch(e) { /* 标签失败不影响评论发布 */ }
+
+    // 写入元数据（标记哪条评论需要回复、何时回复）
+    try {
+      await fetch(`${GH_API}/repos/${COMMENTS_OWNER}/${COMMENTS_REPO}/issues/${issueNumber}/comments`, {
+        method: 'POST',
+        headers: { 'Authorization': `token ${GH_TOKEN}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ body: `BOT_META\nreplyTo: ${comment.id}\nwaitUntil: ${waitUntil}` })
+      });
+    } catch(e) { /* 元数据失败不影响评论发布 */ }
     
     return Response.json({
       success: true,
