@@ -7,14 +7,14 @@ export const albums: Album[] = [
     "id": "chatter-covers",
     "title": "说说杂谈用",
     "description": "默认封面图集，用于说说和杂谈",
-    "cover": "https://bu.dusays.com/2026/03/24/69c24230a5ff8.jpg",
+    "cover": "https://opa-1316532755.cos.ap-guangzhou.myqcloud.com/zarasos-home/photo_04.jpg",
     "date": "2026.07",
     "photos": [
-      { "url": "https://bu.dusays.com/2026/03/31/69cb69bb530d8.jpg", "caption": "原来的人" },
-      { "url": "https://bu.dusays.com/2026/03/24/69c24230de927.jpg", "caption": "星空漫游" },
-      { "url": "https://bu.dusays.com/2026/03/24/69c24230a4efe.jpg", "caption": "古都夕阳" },
-      { "url": "https://bu.dusays.com/2026/03/24/69c24230d661d.jpg", "caption": "青石板小路" },
-      { "url": "https://bu.dusays.com/2026/03/24/69c24230de927.jpg", "caption": "飞檐翘角" }
+      { "url": "https://opa-1316532755.cos.ap-guangzhou.myqcloud.com/zarasos-home/photo_01.jpg", "caption": "原来的人" },
+      { "url": "https://opa-1316532755.cos.ap-guangzhou.myqcloud.com/zarasos-home/photo_02.jpg", "caption": "星空漫游" },
+      { "url": "https://opa-1316532755.cos.ap-guangzhou.myqcloud.com/zarasos-home/photo_03.jpg", "caption": "古都夕阳" },
+      { "url": "https://opa-1316532755.cos.ap-guangzhou.myqcloud.com/zarasos-home/photo_04.jpg", "caption": "飞檐翘角" },
+      { "url": "https://opa-1316532755.cos.ap-guangzhou.myqcloud.com/zarasos-home/photo_05.jpg", "caption": "青石板小路" }
     ]
   }
 ];
