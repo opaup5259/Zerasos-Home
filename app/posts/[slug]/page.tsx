@@ -52,7 +52,9 @@ function extractToc(content: string) {
 }
 
 async function getPostData(slug: string) {
-  const fullPath = path.join(process.cwd(), 'posts', `${slug}.md`);
+  // 🌟 解码 URL 编码的中文 slug，防止构建时找不到文件
+  const decodedSlug = decodeURIComponent(slug);
+  const fullPath = path.join(process.cwd(), 'posts', `${decodedSlug}.md`);
   const fileContents = fs.readFileSync(fullPath, 'utf8');
   let { data, content } = matter(fileContents);
 
@@ -109,10 +111,10 @@ async function getPostData(slug: string) {
     "https://opa-1316532755.cos.ap-guangzhou.myqcloud.com/zarasos-home/photo_05.jpg",
   ];
   let coverIdx = 0;
-  for (let ci = 0; ci < slug.length; ci++) coverIdx = (coverIdx + slug.charCodeAt(ci)) % fallbackCovers.length;
+  for (let ci = 0; ci < decodedSlug.length; ci++) coverIdx = (coverIdx + decodedSlug.charCodeAt(ci)) % fallbackCovers.length;
 
   return {
-    slug,
+    slug: decodedSlug,
     contentHtml: processedContent.toString(),
     toc: extractToc(content),
     title: data.title,
@@ -123,6 +125,7 @@ async function getPostData(slug: string) {
 }
 
 function getRecentPosts(currentSlug: string) {
+  const decodedCurrentSlug = decodeURIComponent(currentSlug);
   const postsDirectory = path.join(process.cwd(), 'posts');
   let fileNames: string[] = [];
   try { fileNames = fs.readdirSync(postsDirectory).filter(f => f.endsWith('.md')); } catch(e) {}
@@ -132,7 +135,7 @@ function getRecentPosts(currentSlug: string) {
     const c = fs.readFileSync(path.join(postsDirectory, f), 'utf8');
     const { data } = matter(c);
     return { slug: s, title: data.title || '无标题', date: data.date };
-  }).filter(p => p.slug !== currentSlug).slice(0, 3);
+  }).filter(p => p.slug !== decodedCurrentSlug).slice(0, 3);
 }
 
 export default async function Post({ params }: { params: Promise<{ slug: string }> }) {

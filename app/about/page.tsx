@@ -27,15 +27,26 @@ function getDirActivities(dirName: string, typeLabel: '文章' | '杂谈' | '说
   const files = fs.readdirSync(dirPath).filter(f => f.endsWith('.md'));
 
   return files.map(file => {
-    const content = fs.readFileSync(path.join(dirPath, file), 'utf8');
-    const { data } = matter(content);
-    return {
-      id: `${dirName}-${file}`,
-      type: typeLabel,
-      title: data.title || file.replace('.md', ''),
-      date: data.date ? new Date(data.date).toISOString() : '1970-01-01T00:00:00Z',
-      url: `/${linkPrefix}/${file.replace('.md', '')}`
-    };
+    try {
+      const content = fs.readFileSync(path.join(dirPath, file), 'utf8');
+      const { data } = matter(content);
+      return {
+        id: `${dirName}-${file}`,
+        type: typeLabel,
+        title: data.title || file.replace('.md', ''),
+        date: data.date ? new Date(data.date).toISOString() : '1970-01-01T00:00:00Z',
+        url: `/${linkPrefix}/${file.replace('.md', '')}`
+      };
+    } catch (e) {
+      console.error(`解析 ${dirPath}/${file} 的 frontmatter 失败:`, e);
+      return {
+        id: `${dirName}-${file}`,
+        type: typeLabel,
+        title: file.replace('.md', ''),
+        date: '1970-01-01T00:00:00Z',
+        url: `/${linkPrefix}/${file.replace('.md', '')}`
+      };
+    }
   });
 }
 
