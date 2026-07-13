@@ -15,6 +15,7 @@ type BiliResult = {
   error?: string
 }
 
+// GET /api/music/bilibili?bvid=xxx  — 获取歌曲信息
 export async function GET(request: NextRequest) {
   const bvid = request.nextUrl.searchParams.get('bvid')
   if (!bvid) {
@@ -22,7 +23,6 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // 1) 获取视频信息 + CID
     const infoRes = await fetch(
       `https://api.bilibili.com/x/web-interface/view?bvid=${bvid}`,
       { headers: BILI_HEADERS, signal: AbortSignal.timeout(8000) },
@@ -35,7 +35,6 @@ export async function GET(request: NextRequest) {
     const { data } = info
     const cid = data.cid
 
-    // 2) 获取 DASH 音频流
     const playRes = await fetch(
       `https://api.bilibili.com/x/player/playurl?bvid=${bvid}&cid=${cid}&qn=0&fnval=16&otype=json`,
       { headers: BILI_HEADERS, signal: AbortSignal.timeout(8000) },
@@ -44,17 +43,22 @@ export async function GET(request: NextRequest) {
     const dashAudio = playData.data?.dash?.audio?.[0]
     const audioUrl = dashAudio?.baseUrl || dashAudio?.backupUrl?.[0] || ''
 
+    // 返回代理播放 URL 而不是直链
+    const baseUrl = process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : `http://localhost:${process.env.PORT || 3000}`
+
     return NextResponse.json({
       id: bvid,
       bvid,
       name: data.title || '未知视频',
       artist: data.owner?.name || '',
       cover: data.pic || '',
-      url: audioUrl,
+      url: audioUrl,                                    // 原始直链（浏览器可能播不了）
+      proxyUrl: `${baseUrl}/api/music/bilibili/play?bvid=${bvid}`,  // 代理链（带 Referer）
     })
   } catch (error: any) {
     console.error(`[api/music/bilibili] 获取 ${bvid} 失败:`, error)
     return NextResponse.json({ id: bvid, bvid, error: String(error) })
   }
 }
-// force redeploy
