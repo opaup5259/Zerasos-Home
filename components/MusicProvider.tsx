@@ -110,14 +110,14 @@ export function MusicProvider({ children }: { children: ReactNode }) {
               fetch(`/api/music/bilibili?bvid=${bvid}`).then(r => r.json())
             )
           );
-          biliResults.filter((s: any) => s && s.url && !s.error)
+          biliResults.filter((s: any) => s && (s.url || s.proxyUrl) && !s.error)
             .forEach((s: any) => {
               allSongs.push({
                 id: s.id || s.bvid || Math.random().toString(),
                 title: s.name || '未知视频',
                 artist: s.artist || '',
                 cover: s.cover || 'https://bu.dusays.com/2026/03/24/69c24230a5ff8.jpg',
-                src: s.url,
+                src: s.proxyUrl || s.url,
                 lrcUrl: null,
                 lyrics: []
               });
