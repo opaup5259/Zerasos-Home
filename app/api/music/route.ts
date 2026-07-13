@@ -12,40 +12,30 @@ type SongResult = {
   artist?: string
   author?: string
   cover?: string
-  pic?: string
   url?: string
   lrc?: string
   error?: string
 }
 
-// 从环境变量读取代理 URL，若未设置则尝试公共代理
 function getProxyUrl(): string | null {
-  const envProxy = process.env.NETEASE_PROXY
-  if (envProxy) return envProxy
-  // 可选默认公共代理（不可靠，建议自建）
-  return process.env.VERCEL_ENV === 'production'
-    ? null
-    : null
+  return process.env.NETEASE_PROXY || null
 }
 
-// 通过官方 API 获取单首歌曲
-async function fetchViaOfficial(songId: string): Promise<SongResult | null> {
+// 官方 API 获取歌曲详情
+async function fetchOfficialDetail(songId: string): Promise<any | null> {
   try {
     const res = await fetch(
       `https://music.163.com/api/song/detail/?id=${songId}&ids=[${songId}]`,
       { headers: NET_EASE_HEADERS, signal: AbortSignal.timeout(6000) },
     )
-    const detail = await res.json()
-    const song = detail.songs?.[0]
-    if (!song || !song.name) return null
-    return song
+    return (await res.json()).songs?.[0] || null
   } catch {
     return null
   }
 }
 
-// 通过代理 API 获取单首歌曲
-async function fetchViaProxy(songId: string, proxyBase: string): Promise<any | null> {
+// 代理 API 获取歌曲详情
+async function fetchProxyDetail(songId: string, proxyBase: string): Promise<any | null> {
   try {
     const res = await fetch(
       `${proxyBase}/song/detail?ids=${songId}`,
@@ -53,23 +43,39 @@ async function fetchViaProxy(songId: string, proxyBase: string): Promise<any | n
     )
     const data = await res.json()
     if (data.code !== 200) return null
-    return data.songs?.[0] || null
+    return (data.songs || data.result || [null])[0]
   } catch {
     return null
   }
 }
 
-// 通过网易云官方格式组装结果
-function buildResult(songId: string, song: any): SongResult {
-  const artistName = song.artists?.[0]?.name || song.ar?.[0]?.name || '未知歌手'
+// 通过代理获取歌曲播放 URL
+async function fetchPlayUrl(songId: string, proxyBase: string): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `${proxyBase}/song/url?id=${songId}`,
+      { signal: AbortSignal.timeout(8000) },
+    )
+    const data = await res.json()
+    if (data.code === 200 && data.data?.[0]?.url) {
+      return data.data[0].url
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+function buildSong(songId: string, song: any, playUrl?: string): SongResult {
+  const artistName = song.artists?.[0]?.name || song.ar?.[0]?.name || ''
+  const cover = song.album?.picUrl || song.al?.picUrl || ''
   return {
     id: songId,
-    name: song.name,
+    name: song.name || '未知歌曲',
     artist: artistName,
     author: artistName,
-    cover: song.album?.picUrl || song.al?.picUrl || '',
-    pic: song.album?.picUrl || song.al?.picUrl || '',
-    url: `https://music.163.com/song/media/outer/url?id=${songId}.mp3`,
+    cover,
+    url: playUrl || `https://music.163.com/song/media/outer/url?id=${songId}.mp3`,
     lrc: '',
   }
 }
@@ -81,25 +87,29 @@ export async function GET(request: NextRequest) {
   }
 
   const songIds = ids.split(',').map((id) => id.trim()).filter(Boolean)
+  const proxyBase = getProxyUrl()
 
   const results: SongResult[] = await Promise.all(
     songIds.map(async (songId): Promise<SongResult> => {
-      // 1) 先走官方 API
-      let song = await fetchViaOfficial(songId)
+      // 1) 官方详情
+      let song = await fetchOfficialDetail(songId)
 
-      // 2) 官方拿不到 -> 尝试代理
-      if (!song) {
-        const proxyBase = getProxyUrl()
-        if (proxyBase) {
-          song = await fetchViaProxy(songId, proxyBase)
-        }
+      // 2) 官方拿不到 -> 代理详情
+      if (!song && proxyBase) {
+        song = await fetchProxyDetail(songId, proxyBase)
       }
 
       if (!song) {
         return { id: songId, error: 'not_found' }
       }
 
-      // 3) 获取歌词（可选）
+      // 3) 播放地址：有代理则走代理 /song/url，否则用官方 URL
+      let playUrl: string | undefined
+      if (proxyBase) {
+        playUrl = (await fetchPlayUrl(songId, proxyBase)) || undefined
+      }
+
+      // 4) 歌词（可选）
       let lrcText = ''
       try {
         const lrcRes = await fetch(
@@ -110,9 +120,9 @@ export async function GET(request: NextRequest) {
           const lrcData = await lrcRes.json()
           lrcText = lrcData.lrc?.lyric || ''
         }
-      } catch { /* 歌词可选，失败不影响主流程 */ }
+      } catch { /* ignore */ }
 
-      const result = buildResult(songId, song)
+      const result = buildSong(songId, song, playUrl)
       result.lrc = lrcText
       return result
     }),
