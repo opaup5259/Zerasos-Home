@@ -11,19 +11,27 @@ function pathToIssueTitle(path: string): string {
   return `comments: ${path.replace(/\/$/,'') || '/'}`.substring(0, 200);
 }
 
-// 查找或创建对应页面路径的 Issue
+// 查找或创建对应页面路径的 Issue（避免使用 Search API，防止索引延迟）
 async function ensureIssue(path: string): Promise<number> {
   const title = pathToIssueTitle(path);
   
-  // 先搜索已有 Issue
-  const searchUrl = `${GH_API}/search/issues?q=${encodeURIComponent(title)}+repo:${COMMENTS_OWNER}/${COMMENTS_REPO}+type:issue+in:title`;
-  const searchRes = await fetch(searchUrl, {
-    headers: { 'Authorization': `token ${GH_TOKEN}`, 'Accept': 'application/vnd.github.v3+json' }
-  });
-  const searchData = await searchRes.json();
-  
-  if (searchData.items && searchData.items.length > 0) {
-    return searchData.items[0].number;
+  // 列出所有 Issue（最多100个），本地匹配标题
+  let page = 1;
+  const perPage = 100;
+  while (page <= 3) {  // 最多翻3页
+    const listUrl = `${GH_API}/repos/${COMMENTS_OWNER}/${COMMENTS_REPO}/issues?state=all&per_page=${perPage}&page=${page}&sort=updated&direction=desc`;
+    const listRes = await fetch(listUrl, {
+      headers: { 'Authorization': `token ${GH_TOKEN}`, 'Accept': 'application/vnd.github.v3+json' }
+    });
+    if (!listRes.ok) break;
+    const issues = await listRes.json();
+    if (!Array.isArray(issues) || issues.length === 0) break;
+    for (const issue of issues) {
+      if (issue.title === title) {
+        return issue.number;
+      }
+    }
+    page++;
   }
   
   // 没找到，创建新 Issue
