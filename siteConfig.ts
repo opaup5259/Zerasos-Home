@@ -9,7 +9,7 @@ export const siteConfig = {
 
   navTitle: "Zerasos",
   navSuffix: "の",
-  navAfter: "灵境档案",
+  navAfter: "灵境档案（绝密开发中）",
 
   avatarUrl: "https://opa-1316532755.cos.ap-guangzhou.myqcloud.com/zarasos-home/touxiang.jpg",
 
